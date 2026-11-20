@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab Intuisi Risiko: Monty Hall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F1F5F3; --card:#FFFFFF; --ink:#0F1F2E; --muted:#55656E; --line:#C9D3D8;
+  --switch:#2F5BEA; --stay:#C98A00; --bad:#B3263E; --good:#0E8F6E;
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --body:"Instrument Sans","Avenir Next","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{font-family:var(--body);font-size:17px;color:var(--ink);line-height:1.6;
+  background-color:var(--paper);
+  background-image:linear-gradient(rgba(15,31,46,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(15,31,46,.045) 1px,transparent 1px);
+  background-size:28px 28px}
+body{margin:0;padding:48px 24px 80px}
+main{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:230px minmax(0,1fr);column-gap:56px}
+.top{grid-column:1/-1;margin-bottom:36px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(2.4rem,6.5vw,4.4rem);line-height:.98;letter-spacing:-.04em;margin:0 0 14px}
+h2{font-family:var(--display);font-size:1.25rem;font-weight:700;letter-spacing:-.01em;margin:0 0 10px;position:relative}
+p{margin:0 0 12px;max-width:62ch}
+.lead{color:var(--muted);font-size:1.1rem;max-width:44ch}
+
+/* navigasi eksperimen */
+.tabs{grid-column:1;grid-row:2/span 40;align-self:start;position:sticky;top:24px;display:flex;flex-direction:column;gap:2px}
+.tabs button{border:0;border-radius:8px;background:transparent;text-align:left;padding:10px 12px;font-weight:500;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.tabs button[data-score]::after{content:attr(data-score);font-variant-numeric:tabular-nums;font-size:.85rem;opacity:.65}
+.tabs button[aria-selected="true"]{background:var(--ink);color:#fff}
+main>[id^="exp-"],main>#summary{grid-column:2}
+
+/* protokol bertahap */
+[id^="exp-"]{counter-reset:st}
+.card{border-left:2px solid var(--line);padding:0 0 34px 34px;margin:0;position:relative}
+.card h2::before{counter-increment:st;content:counter(st);position:absolute;left:-48px;top:-1px;width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;font-size:.85rem;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.settings{display:flex;gap:20px;flex-wrap:wrap;margin-top:16px}
+label{font-size:.85rem;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:5px}
+select{font:inherit;font-weight:400;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+
+/* tombol */
+button{font:inherit;cursor:pointer;border-radius:8px;border:1.5px solid var(--ink);padding:10px 18px;background:#fff;color:var(--ink);transition:background .15s,color .15s,border-color .15s}
+button:hover:not(:disabled){background:var(--ink);color:#fff}
+button.primary{background:var(--switch);border-color:var(--switch);color:#fff;font-weight:600;padding:12px 22px}
+button.primary:hover:not(:disabled){background:#1F42B8;border-color:#1F42B8}
+button:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--switch);outline-offset:2px}
+.choices,.stack{display:flex;flex-direction:column;align-items:stretch;gap:8px;max-width:520px;margin-top:8px}
+.choices button,.stack button{display:flex;align-items:center;gap:12px;text-align:left;border:1.5px solid var(--line);padding:12px 14px}
+.choices button::before,.stack button::before{content:"";flex:none;width:16px;height:16px;border-radius:50%;border:2px solid var(--muted)}
+.choices button:hover:not(:disabled),.stack button:hover:not(:disabled){background:#fff;color:var(--ink);border-color:var(--switch)}
+.choices button.sel,.stack button.sel{border-color:var(--switch);background:#EEF2FF;color:var(--ink)}
+.choices button.sel::before,.stack button.sel::before{border-color:var(--switch);background:radial-gradient(circle,var(--switch) 42%,transparent 48%)}
+.choices button.sel:disabled,.stack button.sel:disabled{opacity:1}
+
+/* pintu */
+.doors{display:flex;gap:12px;margin:16px 0 4px;flex-wrap:wrap}
+.door{position:relative;width:68px;height:100px;border-radius:34px 34px 3px 3px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:7px;font-size:.72rem;text-align:center;line-height:1.2}
+.door::after{content:"";position:absolute;right:11px;top:48%;width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55}
+.door.picked{background:var(--ink);color:#fff;outline:3px solid var(--switch);outline-offset:3px}
+.door.open{background:transparent;border:2px dashed var(--line);color:var(--muted)}
+.door.open::after{display:none}
+.door.left{background:var(--ink);color:#fff}
+
+/* grafik dan hasil */
+canvas{width:100%;height:240px;display:block;border:1px solid var(--line);border-radius:8px;background:#fff;margin-top:12px}
+.legend{display:flex;gap:22px;flex-wrap:wrap;margin-top:10px;font-size:.95rem}
+.sw{display:inline-block;width:14px;height:4px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.dot{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.num{font-variant-numeric:tabular-nums;font-weight:600}
+.verdict{font-family:var(--display);font-size:1.2rem;font-weight:700;line-height:1.3}
+.verdict.good,.verdict.bad{padding:12px 16px;border-left:4px solid;border-radius:0 8px 8px 0;max-width:62ch}
+.verdict.good{color:#08674F;background:rgba(14,143,110,.1);border-color:var(--good)}
+.verdict.bad{color:#8C1A2F;background:rgba(179,38,62,.08);border-color:var(--bad)}
+.note{font-size:.85rem;color:var(--muted);margin:4px 0 0 34px;max-width:60ch}
+
+/* skor akhir */
+#summary{background:var(--ink);color:#E6EDF2;border:0;border-radius:14px;padding:28px 32px;margin-top:56px}
+#summary h2{color:#fff}
+#summary h2::before{content:none}
+#summary ul{color:#C8D4DC}
+#summary .verdict{color:#fff;font-size:1.7rem}
+#summary .lead{color:#9FB0BC}
+#summary button{background:transparent;color:#fff;border-color:#5C7081}
+#summary button:hover:not(:disabled){background:#fff;color:var(--ink);border-color:#fff}
+
+#summary .prof{font-family:var(--display);font-size:1.35rem;color:#fff;margin:20px 0 6px}
+#summary li{margin-bottom:4px}
+@media (max-width:860px){
+  body{padding:28px 16px 64px}
+  main{grid-template-columns:minmax(0,1fr)}
+  .tabs{grid-column:1;grid-row:auto;position:static;flex-direction:row;overflow-x:auto;margin-bottom:24px;padding-bottom:4px}
+  .tabs button{flex:none;white-space:nowrap;border:1.5px solid var(--line)}
+  main>[id^="exp-"],main>#summary{grid-column:1}
+  .card{padding-left:26px}
+  .card h2::before{left:-40px}
+  .note{margin-left:26px}
+}
+@media (prefers-reduced-motion:reduce){button{transition:none}}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Lab Intuisi Risiko</h1>
+    <p class="lead">Lima eksperimen kecil untuk menguji seberapa jauh intuisimu bisa dipercaya. Tebak dulu, lalu lihat ribuan percobaan menjawabnya.</p>
+  </header>
+  <nav class="tabs" role="tablist" aria-label="Pilih eksperimen">
+    <button role="tab" aria-selected="true" data-exp="monty">Monty Hall</button>
+    <button role="tab" aria-selected="false" data-exp="medis">Tes medis</button>
+  </nav>
+
+<div id="exp-monty">
+  <section class="card" aria-labelledby="t-setup">
+    <h2 id="t-setup">Situasinya</h2>
+    <p id="story"></p>
+    <div class="doors" id="doors" aria-hidden="true"></div>
+    <div class="settings">
+      <label>Jumlah pintu
+        <select id="doorCount"><option value="3" selected>3 pintu</option><option value="5">5 pintu</option><option value="10">10 pintu</option></select>
+      </label>
+      <label>Jumlah percobaan
+        <select id="trialCount"><option value="100">100</option><option value="1000" selected>1.000</option><option value="10000">10.000</option></select>
+      </label>
+    </div>
+  </section>
+
+  <section class="card" id="step1" aria-labelledby="t-guess">
+    <h2 id="t-guess">Tebakanmu</h2>
+    <p id="question"></p>
+    <div class="choices" id="choices">
+      <button data-g="tetap">Tetap di pintu pertama</button>
+      <button data-g="ganti">Ganti ke pintu yang tersisa</button>
+      <button data-g="sama">Sama saja</button>
+    </div>
+    <p style="margin-top:16px"><button class="primary" id="runBtn" disabled>Jalankan simulasi</button></p>
+  </section>
+
+  <section class="card" id="step2" aria-labelledby="t-sim" hidden>
+    <h2 id="t-sim">Simulasi</h2>
+    <div class="chartwrap">
+      <canvas id="chart" role="img" aria-label="Grafik persentase kemenangan strategi tetap dan ganti selama simulasi"></canvas>
+    </div>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--stay)"></i>Tetap: <span class="num" id="vStay">0%</span></span>
+      <span><i class="sw" style="background:var(--switch)"></i>Ganti: <span class="num" id="vSwitch">0%</span></span>
+      <span class="num" id="progress"></span>
+    </div>
+  </section>
+
+  <section class="card" id="step3" aria-live="polite" hidden>
+    <h2>Hasilnya</h2>
+    <p class="verdict" id="verdict"></p>
+    <p id="explain"></p>
+    <p id="score" class="lead"></p>
+    <button id="again">Coba lagi dengan angka acak baru</button>
+  </section>
+
+  <p class="note">Ini simulasi berdasarkan asumsi: host selalu tahu isi pintu dan selalu membuka pintu kosong yang tidak kamu pilih.</p>
+</div>
+
+<div id="exp-medis" hidden>
+  <section class="card" aria-labelledby="t-msetup">
+    <h2 id="t-msetup">Situasinya</h2>
+    <p id="mStory"></p>
+    <div class="settings">
+      <label>Prevalensi penyakit
+        <select id="mPrev"><option value="0.001">0,1%</option><option value="0.01" selected>1%</option><option value="0.05">5%</option></select>
+      </label>
+      <label>Akurasi tes
+        <select id="mAcc"><option value="0.9">90%</option><option value="0.95">95%</option><option value="0.99" selected>99%</option></select>
+      </label>
+    </div>
+  </section>
+
+  <section class="card" id="mStep1" aria-labelledby="t-mguess">
+    <h2 id="t-mguess">Tebakanmu</h2>
+    <p>Hasil tesmu positif. Berapa peluang kamu benar-benar sakit?</p>
+    <div class="stack" id="mChoices">
+      <button data-g="a">Hampir pasti sakit (di atas 90%)</button>
+      <button data-g="b">Kemungkinan besar sakit (70 sampai 90%)</button>
+      <button data-g="c">Sekitar separuh (40 sampai 70%)</button>
+      <button data-g="d">Kemungkinan kecil (di bawah 40%)</button>
+    </div>
+    <p style="margin-top:16px"><button class="primary" id="mRunBtn" disabled>Tes 10.000 orang</button></p>
+  </section>
+
+  <section class="card" id="mStep2" aria-labelledby="t-mpop" hidden>
+    <h2 id="t-mpop">10.000 orang dites</h2>
+    <canvas id="pop" role="img" aria-label="Kisi 10.000 orang; yang hasil tesnya positif diberi warna"></canvas>
+    <div class="legend">
+      <span><i class="dot" style="background:#2F5BEA"></i>Positif dan sakit: <span class="num" id="mTP">0</span></span>
+      <span><i class="dot" style="background:#C98A00"></i>Positif tapi sehat: <span class="num" id="mFP">0</span></span>
+    </div>
+    <p style="margin-top:10px">Dari semua yang positif, yang benar-benar sakit: <span class="num" id="mPPV">belum ada</span></p>
+  </section>
+
+  <section class="card" id="mStep3" aria-live="polite" hidden>
+    <h2>Hasilnya</h2>
+    <p class="verdict" id="mVerdict"></p>
+    <p id="mExplain"></p>
+    <p id="mScore" class="lead"></p>
+    <button id="mAgain">Coba lagi dengan angka acak baru</button>
+  </section>
+
+  <p class="note">Ini simulasi berdasarkan asumsi: akurasi berlaku sama untuk orang sakit (sensitivitas) dan orang sehat (spesifisitas), dan tiap orang dites sekali.</p>
+</div>
+
+<section class="card" id="summary" aria-labelledby="t-sum" style="margin-top:32px">
+  <h2 id="t-sum">Skor intuisimu</h2>
+  <div id="sumBody"></div>
+  <button id="sumReset">Hapus semua skor</button>
+</section>
+</main>
+
+<script>
+(function(){
+  var $ = function(s){return document.querySelector(s)};
+  var COLORS = {stay:"#C98A00", sw:"#2F5BEA", grid:"#E1E6EE", text:"#5A6577"};
+  var state = {doors:3, trials:1000, guess:null, running:false};
+  var hist = [];
+
+  function pct(v){return (v*100).toFixed(1).replace(".",",")+"%"}
+  function frac(a,b){return a+"/"+b}
+
+  function renderSetup(){
+    var n = state.doors;
+    $("#story").textContent = "Ada " + n + " pintu. Satu menyembunyikan hadiah, sisanya kosong. Kamu memilih pintu pertama. Host, yang tahu isi semua pintu, lalu membuka " + (n-2) + " pintu kosong lainnya. Tersisa pintu pilihanmu dan satu pintu lain.";
+    $("#question").textContent = "Peluang menang paling besar kalau kamu...";
+    var d = $("#doors"); d.innerHTML = "";
+    for(var i=0;i<n;i++){
+      var el = document.createElement("div");
+      if(i===0){el.className="door picked";el.textContent="Pilihanmu"}
+      else if(i<n-1){el.className="door open";el.textContent="Kosong"}
+      else {el.className="door left";el.textContent="Tersisa"}
+      d.appendChild(el);
+    }
+  }
+
+  function resetFlow(){
+    state.guess = null; state.running = false; hist = [];
+    document.querySelectorAll("#choices button").forEach(function(b){b.classList.remove("sel");b.disabled=false});
+    $("#runBtn").disabled = true;
+    $("#doorCount").disabled = false; $("#trialCount").disabled = false;
+    $("#step2").hidden = true; $("#step3").hidden = true;
+    renderSetup();
+  }
+
+  function trial(n){
+    var prize = Math.floor(Math.random()*n), pick = Math.floor(Math.random()*n);
+    return pick === prize; // true: strategi "tetap" menang; "ganti" menang jika false
+  }
+
+  function draw(){
+    var c = $("#chart"), dpr = window.devicePixelRatio || 1;
+    var w = c.clientWidth, h = c.clientHeight;
+    c.width = w*dpr; c.height = h*dpr;
+    var g = c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
+    var pad = {l:40,r:10,t:10,b:22};
+    var X = function(i){return pad.l+(w-pad.l-pad.r)*i/state.trials};
+    var Y = function(v){return pad.t+(h-pad.t-pad.b)*(1-v)};
+    g.font = "11px system-ui,sans-serif"; g.fillStyle = COLORS.text; g.strokeStyle = COLORS.grid; g.lineWidth = 1;
+    [0,.25,.5,.75,1].forEach(function(v){
+      g.beginPath(); g.moveTo(pad.l,Y(v)); g.lineTo(w-pad.r,Y(v)); g.stroke();
+      g.fillText(Math.round(v*100)+"%",4,Y(v)+4);
+    });
+    g.fillText("0",pad.l,h-6); g.fillText(state.trials.toLocaleString("id-ID"),w-pad.r-30,h-6);
+    var n = state.doors;
+    g.setLineDash([4,4]); g.lineWidth = 1;
+    [[1/n,COLORS.stay],[(n-1)/n,COLORS.sw]].forEach(function(t){
+      g.strokeStyle = t[1]; g.globalAlpha = .45;
+      g.beginPath(); g.moveTo(pad.l,Y(t[0])); g.lineTo(w-pad.r,Y(t[0])); g.stroke();
+    });
+    g.setLineDash([]); g.globalAlpha = 1; g.lineWidth = 2.5; g.lineJoin = "round";
+    [["stay",COLORS.stay],["sw",COLORS.sw]].forEach(function(k){
+      g.strokeStyle = k[1]; g.beginPath();
+      hist.forEach(function(p,idx){ idx ? g.lineTo(X(p.i),Y(p[k[0]])) : g.moveTo(X(p.i),Y(p[k[0]])); });
+      g.stroke();
+    });
+  }
+
+  function run(){
+    var n = state.doors, T = state.trials, i = 0, stay = 0;
+    var step = Math.max(1, Math.ceil(T/90));
+    var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    state.running = true; hist = [];
+    $("#step2").hidden = false; $("#step3").hidden = true;
+    $("#doorCount").disabled = true; $("#trialCount").disabled = true;
+    document.querySelectorAll("#choices button").forEach(function(b){b.disabled=true});
+    $("#runBtn").disabled = true;
+
+    function chunk(){
+      var end = Math.min(T, i+step);
+      for(; i<end; i++){ if(trial(n)) stay++; }
+      hist.push({i:i, stay:stay/i, sw:(i-stay)/i});
+      $("#vStay").textContent = pct(stay/i);
+      $("#vSwitch").textContent = pct((i-stay)/i);
+      $("#progress").textContent = i.toLocaleString("id-ID") + " dari " + T.toLocaleString("id-ID") + " percobaan";
+    }
+    function frame(){
+      if(reduce){ while(i<T) chunk(); } else { chunk(); }
+      draw();
+      if(i<T){ requestAnimationFrame(frame); } else { finish(stay/T, (T-stay)/T); }
+    }
+    frame();
+  }
+
+  function loadScore(){
+    try{ var s = JSON.parse(localStorage.getItem("lir-monty")||"null"); if(s && typeof s.total==="number") return s; }catch(e){}
+    return {right:0,total:0};
+  }
+  function saveScore(s){ try{ localStorage.setItem("lir-monty",JSON.stringify(s)); }catch(e){} }
+
+  function finish(sRate, wRate){
+    var n = state.doors, ok = state.guess === "ganti";
+    state.running = false;
+    var v = $("#verdict");
+    v.className = "verdict " + (ok ? "good" : "bad");
+    v.textContent = ok
+      ? "Tebakanmu benar: mengganti pintu lebih menguntungkan."
+      : "Tebakanmu meleset: yang paling menguntungkan adalah mengganti pintu.";
+    $("#explain").textContent = "Pilihan pertamamu hanya punya peluang " + frac(1,n) + " untuk benar. Host tahu isi pintu, jadi pintu yang dia buka tidak acak. Seluruh peluang sisanya, " + frac(n-1,n) + ", berpindah ke satu pintu yang tersisa. Di simulasi ini, tetap menang " + pct(sRate) + " dan ganti menang " + pct(wRate) + ".";
+    var s = loadScore(); s.total++; if(ok) s.right++; saveScore(s); renderSummary();
+    $("#score").textContent = "Skor intuisimu di eksperimen ini: benar " + s.right + " dari " + s.total + " tebakan.";
+    $("#step3").hidden = false;
+  }
+
+  document.querySelectorAll("#choices button").forEach(function(b){
+    b.addEventListener("click", function(){
+      if(state.running) return;
+      state.guess = b.dataset.g;
+      document.querySelectorAll("#choices button").forEach(function(x){x.classList.toggle("sel", x===b)});
+      $("#runBtn").disabled = false;
+    });
+  });
+  $("#runBtn").addEventListener("click", function(){ if(state.guess && !state.running) run(); });
+  $("#again").addEventListener("click", resetFlow);
+  $("#doorCount").addEventListener("change", function(e){ state.doors = +e.target.value; renderSetup(); });
+  $("#trialCount").addEventListener("change", function(e){ state.trials = +e.target.value; });
+  window.addEventListener("resize", function(){ if(hist.length) draw(); });
+
+  // ===== Eksperimen 2: tes medis =====
+  var M = {p:.01, acc:.99, N:10000, guess:null, running:false};
+  var mCells = [], mUpto = 0;
+
+  function getScore(k){
+    try{ var s = JSON.parse(localStorage.getItem(k)||"null"); if(s && typeof s.total==="number") return s; }catch(e){}
+    return {right:0,total:0};
+  }
+  function putScore(k,s){ try{ localStorage.setItem(k,JSON.stringify(s)); }catch(e){} }
+  function pctTxt(v){ return (v*100).toString().replace(".",",")+"%"; }
+  function mTheory(){ var tp = M.p*M.acc, fp = (1-M.p)*(1-M.acc); return tp/(tp+fp); }
+  function mBucket(v){ return v>=.9 ? "a" : v>=.7 ? "b" : v>=.4 ? "c" : "d"; }
+
+  function mRender(){
+    $("#mStory").textContent = "Sebuah penyakit menyerang " + pctTxt(M.p) + " orang. Ada tes yang akurat " + pctTxt(M.acc) + ": " + pctTxt(M.acc) + " orang sakit hasilnya positif, dan " + pctTxt(M.acc) + " orang sehat hasilnya negatif. Kamu ikut tes, dan hasilnya positif.";
+  }
+
+  function mLock(on){
+    document.querySelectorAll("#mChoices button").forEach(function(b){ b.disabled = on; });
+    $("#mPrev").disabled = on; $("#mAcc").disabled = on;
+    if(on) $("#mRunBtn").disabled = true;
+  }
+
+  function mReset(){
+    M.guess = null; M.running = false; mCells = []; mUpto = 0;
+    document.querySelectorAll("#mChoices button").forEach(function(b){ b.classList.remove("sel"); });
+    mLock(false); $("#mRunBtn").disabled = true;
+    $("#mStep2").hidden = true; $("#mStep3").hidden = true;
+    $("#mTP").textContent = "0"; $("#mFP").textContent = "0"; $("#mPPV").textContent = "belum ada";
+    mRender();
+  }
+
+  function mDraw(){
+    var c = $("#pop"), w = c.clientWidth; if(!w) return;
+    var cols = Math.ceil(Math.sqrt(M.N)), rows = Math.ceil(M.N/cols), cell = w/cols;
+    var dpr = window.devicePixelRatio || 1;
+    c.style.height = (cell*rows) + "px";
+    c.width = w*dpr; c.height = cell*rows*dpr;
+    var g = c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
+    var gap = cell >= 4 ? 1 : 0;
+    for(var k=0; k<mUpto; k++){
+      var v = mCells[k];
+      g.fillStyle = v===1 ? "#2F5BEA" : v===2 ? "#C98A00" : "#E4E9F0";
+      g.fillRect((k%cols)*cell, Math.floor(k/cols)*cell, cell-gap, cell-gap);
+    }
+  }
+
+  function mRun(){
+    var N = M.N, i = 0, tp = 0, fp = 0, step = Math.ceil(N/80);
+    var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    M.running = true; mCells = new Array(N); mUpto = 0;
+    $("#mStep2").hidden = false; $("#mStep3").hidden = true;
+    mLock(true);
+
+    function chunk(){
+      var end = Math.min(N, i+step);
+      for(; i<end; i++){
+        var sick = Math.random() < M.p;
+        var pos = sick ? Math.random() < M.acc : Math.random() < 1-M.acc;
+        mCells[i] = pos ? (sick ? 1 : 2) : 0;
+        if(pos){ if(sick) tp++; else fp++; }
+      }
+      mUpto = i;
+      $("#mTP").textContent = tp.toLocaleString("id-ID");
+      $("#mFP").textContent = fp.toLocaleString("id-ID");
+      $("#mPPV").textContent = (tp+fp) ? pct(tp/(tp+fp)) : "belum ada";
+    }
+    function frame(){
+      if(reduce){ while(i<N) chunk(); } else { chunk(); }
+      mDraw();
+      if(i<N){ requestAnimationFrame(frame); } else { mFinish(tp, fp); }
+    }
+    frame();
+  }
+
+  function mFinish(tp, fp){
+    M.running = false;
+    var th = mTheory(), ok = M.guess === mBucket(th), sim = (tp+fp) ? tp/(tp+fp) : 0;
+    var v = $("#mVerdict"); v.className = "verdict " + (ok ? "good" : "bad");
+    v.textContent = (ok ? "Tebakanmu tepat. " : "Tebakanmu meleset. ") + "Peluang sakit setelah hasil positif sekitar " + pct(th) + " (di simulasi ini " + pct(sim) + ").";
+    var N = M.N, sick = Math.round(N*M.p), healthy = N - sick, fpExp = Math.round(healthy*(1-M.acc));
+    $("#mExplain").textContent = "Dari " + N.toLocaleString("id-ID") + " orang, sekitar " + sick.toLocaleString("id-ID") + " benar-benar sakit dan hampir semuanya terdeteksi. Tapi dari " + healthy.toLocaleString("id-ID") + " orang sehat, sekitar " + fpExp.toLocaleString("id-ID") + " ikut positif karena tes tidak sempurna. Kalau penyakitnya langka, positif palsu bisa sebanyak positif benar, jadi hasil positif belum berarti pasti sakit.";
+    var s = getScore("lir-medis"); s.total++; if(ok) s.right++; putScore("lir-medis", s); renderSummary();
+    $("#mScore").textContent = "Skor intuisimu di eksperimen ini: benar " + s.right + " dari " + s.total + " tebakan.";
+    $("#mStep3").hidden = false;
+  }
+
+  document.querySelectorAll("#mChoices button").forEach(function(b){
+    b.addEventListener("click", function(){
+      if(M.running) return;
+      M.guess = b.dataset.g;
+      document.querySelectorAll("#mChoices button").forEach(function(x){ x.classList.toggle("sel", x===b); });
+      $("#mRunBtn").disabled = false;
+    });
+  });
+  $("#mRunBtn").addEventListener("click", function(){ if(M.guess && !M.running) mRun(); });
+  $("#mAgain").addEventListener("click", mReset);
+  $("#mPrev").addEventListener("change", function(e){ M.p = +e.target.value; mRender(); });
+  $("#mAcc").addEventListener("change", function(e){ M.acc = +e.target.value; mRender(); });
+  window.addEventListener("resize", function(){ if(mUpto) mDraw(); });
+
+  // ===== Eksperimen 3 sampai 5 (mesin generik) =====
+  var redraws = {};
+  function f1(v){ return (Math.round(v*10)/10).toString().replace(".",","); }
+
+  function rateChart(c, pts, xmax, th){
+    var dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight; if(!w) return;
+    c.width = w*dpr; c.height = h*dpr;
+    var g = c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
+    var L = 40, R = 10, Tp = 10, B = 22;
+    var X = function(i){return L+(w-L-R)*i/xmax}, Y = function(v){return Tp+(h-Tp-B)*(1-v)};
+    g.font = "11px system-ui,sans-serif"; g.fillStyle = COLORS.text; g.strokeStyle = COLORS.grid; g.lineWidth = 1;
+    [0,.25,.5,.75,1].forEach(function(v){
+      g.beginPath(); g.moveTo(L,Y(v)); g.lineTo(w-R,Y(v)); g.stroke();
+      g.fillText(Math.round(v*100)+"%",4,Y(v)+4);
+    });
+    g.fillText("0",L,h-6); g.fillText(xmax.toLocaleString("id-ID"),w-R-30,h-6);
+    g.setLineDash([4,4]); g.strokeStyle = COLORS.stay;
+    g.beginPath(); g.moveTo(L,Y(th)); g.lineTo(w-R,Y(th)); g.stroke();
+    g.setLineDash([]); g.lineWidth = 2.5; g.strokeStyle = COLORS.sw; g.beginPath();
+    pts.forEach(function(p,k){ k ? g.lineTo(X(p.x),Y(p.y)) : g.moveTo(X(p.x),Y(p.y)); });
+    g.stroke();
+  }
+
+  var EXPS = [
+    { id:"bday", tab:"Ulang tahun",
+      params:[{k:"n",label:"Jumlah orang di ruangan",d:23,opts:[[5,"5 orang"],[10,"10 orang"],[23,"23 orang"],[30,"30 orang"],[50,"50 orang"]]}],
+      story:function(P){ return "Ada " + P.n + " orang di sebuah ruangan. Tanggal lahir mereka acak (365 hari, tanpa 29 Februari)."; },
+      q:"Berapa peluang ada paling sedikit dua orang yang berulang tahun di tanggal yang sama?",
+      choices:[["a","Kecil (di bawah 10%)"],["b","Sedang (10 sampai 50%)"],["c","Besar (50 sampai 90%)"],["d","Hampir pasti (di atas 90%)"]],
+      run:"Simulasikan 2.000 ruangan",
+      note:"Garis putus-putus adalah nilai teoretis. Setiap percobaan adalah satu ruangan dengan jumlah orang yang kamu pilih.",
+      theory:function(P){ var q = 1; for(var i=0;i<P.n;i++) q *= (365-i)/365; return 1-q; },
+      bucket:function(v){ return v>=.9 ? "d" : v>=.5 ? "c" : v>=.1 ? "b" : "a"; },
+      start:function(P, th){
+        var T = 2000, i = 0, hit = 0, pts = [];
+        return {
+          step:function(){
+            var e = Math.min(T, i+25);
+            for(; i<e; i++){
+              var seen = {}, m = false;
+              for(var j=0;j<P.n;j++){ var d = Math.floor(Math.random()*365); if(seen[d]){ m = true; break; } seen[d] = 1; }
+              if(m) hit++;
+            }
+            pts.push({x:i,y:hit/i}); return i>=T;
+          },
+          draw:function(c){ rateChart(c, pts, T, th); },
+          info:function(){ return "Ruangan dengan kembaran tanggal lahir: <b>" + hit + "</b> dari " + i + " (" + pct(hit/i) + ")"; },
+          sim:function(){ return hit/T; }
+        };
+      },
+      out:function(P, th, e){
+        return ["Peluang sebenarnya sekitar " + pct(th) + " (di simulasi ini " + pct(e.sim()) + ").",
+          "Yang dihitung bukan peluang tanggalmu sama dengan orang lain, tapi peluang ada pasangan mana pun yang sama. Dengan " + P.n + " orang ada " + (P.n*(P.n-1)/2) + " pasangan yang dibandingkan, dan jumlah pasangan tumbuh jauh lebih cepat daripada jumlah orang."];
+      }
+    },
+    { id:"gambler", tab:"Gambler's fallacy",
+      params:[{k:"k",label:"Panjang rentetan Gambar",d:5,opts:[[3,"3 kali"],[5,"5 kali"],[8,"8 kali"]]}],
+      story:function(P){ return "Sebuah koin yang adil dilempar berulang kali. Kamu menunggu sampai muncul " + P.k + " kali Gambar berturut-turut."; },
+      q:"Pada lemparan berikutnya, peluang muncul Angka adalah...",
+      choices:[["a","Lebih dari 50% (sudah waktunya Angka)"],["b","Tepat 50%"],["c","Kurang dari 50%"]],
+      run:"Kumpulkan 1.000 kejadian",
+      note:"Garis putus-putus adalah 50%. Setiap kejadian adalah satu lemparan yang datang tepat setelah rentetan Gambar sebanyak itu (atau lebih).",
+      theory:function(){ return .5; },
+      bucket:function(v){ return v>.5 ? "a" : v<.5 ? "c" : "b"; },
+      start:function(P, th){
+        var E = 1000, ev = 0, tl = 0, st = 0, fl = 0, pts = [];
+        return {
+          step:function(){
+            var goal = Math.min(E, ev+20);
+            while(ev<goal){
+              var h = Math.random() < .5; fl++;
+              if(st >= P.k){ ev++; if(!h) tl++; }
+              st = h ? st+1 : 0;
+            }
+            pts.push({x:ev,y:tl/ev}); return ev>=E;
+          },
+          draw:function(c){ rateChart(c, pts, E, th); },
+          info:function(){ return "Angka muncul <b>" + tl + "</b> dari " + ev + " lemparan setelah rentetan (" + pct(ev ? tl/ev : 0) + "). Total lemparan: " + fl.toLocaleString("id-ID"); },
+          sim:function(){ return tl/E; }
+        };
+      },
+      out:function(P, th, e){
+        return ["Peluang Angka setelah rentetan tetap sekitar 50% (di simulasi ini " + pct(e.sim()) + ").",
+          "Koin tidak punya ingatan. Tiap lemparan berdiri sendiri, jadi rentetan sebelumnya tidak mengubah peluang berikutnya. Perasaan bahwa Angka \"sudah waktunya muncul\" itulah yang disebut gambler's fallacy."];
+      }
+    },
+    { id:"risk", tab:"Risiko relatif vs absolut", h:130,
+      params:[
+        {k:"base",label:"Risiko tanpa paparan",d:2,opts:[[2,"2 dari 1.000 orang"],[10,"10 dari 1.000 orang"],[50,"50 dari 1.000 orang"]]},
+        {k:"rel",label:"Kenaikan menurut berita",d:.5,opts:[[.5,"naik 50%"],[1,"naik 100%"]]}
+      ],
+      story:function(P){ return "Sebuah berita menulis: \"Makanan X meningkatkan risiko penyakit Y sebesar " + Math.round(P.rel*100) + "%!\" Tanpa makanan X, risiko penyakit Y adalah " + P.base + " dari 1.000 orang."; },
+      q:"Berapa orang tambahan per 1.000 yang terkena penyakit Y karena makanan X?",
+      choices:[["a","Sangat sedikit (kurang dari 5)"],["b","Sedikit (5 sampai 20)"],["c","Banyak (lebih dari 20)"]],
+      run:"Bandingkan 100.000 orang per kelompok",
+      note:"Bar penuh mewakili seluruh orang di satu kelompok. Bagian berwarna adalah yang terkena penyakit.",
+      theory:function(P){ return P.base*P.rel; },
+      bucket:function(v){ return v<5 ? "a" : v<=20 ? "b" : "c"; },
+      start:function(P){
+        var N = 100000, i = 0, c0 = 0, c1 = 0, p0 = P.base/1000, p1 = p0*(1+P.rel);
+        return {
+          step:function(){
+            var e = Math.min(N, i+2000);
+            for(; i<e; i++){ if(Math.random()<p0) c0++; if(Math.random()<p1) c1++; }
+            return i>=N;
+          },
+          draw:function(c){
+            var w = c.clientWidth; if(!w) return;
+            var dpr = window.devicePixelRatio || 1, h = 130;
+            c.style.height = h+"px"; c.width = w*dpr; c.height = h*dpr;
+            var g = c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.font = "12px system-ui,sans-serif";
+            [["Tanpa makanan X",c0,"#5A6577"],["Dengan makanan X",c1,"#B3263E"]].forEach(function(r,k){
+              var y = 18 + k*58;
+              g.fillStyle = COLORS.text; g.fillText(r[0] + ": " + f1(i ? r[1]/i*1000 : 0) + " kasus per 1.000 orang", 6, y);
+              g.fillStyle = "#E4E9F0"; g.fillRect(6, y+8, w-12, 30);
+              g.fillStyle = r[2]; g.fillRect(6, y+8, i ? Math.max(3, r[1]/i*(w-12)) : 0, 30);
+            });
+          },
+          info:function(){ return "Selisih absolut: <b>" + f1(i ? (c1-c0)/i*1000 : 0) + "</b> kasus tambahan per 1.000 orang"; },
+          sim:function(){ return (c1-c0)/N*1000; }
+        };
+      },
+      out:function(P, th, e){
+        return ["Tambahannya sekitar " + f1(th) + " orang per 1.000 (di simulasi ini " + f1(e.sim()) + "). Risiko relatif memang naik " + Math.round(P.rel*100) + "%, tapi risiko absolut hanya bergeser dari " + P.base + " ke " + f1(P.base*(1+P.rel)) + " per 1.000 orang.",
+          "Kata \"naik 50%\" terdengar besar karena dibandingkan dengan angka dasar yang kecil. Pertanyaan yang berguna selalu: naik dari berapa ke berapa? Kenaikan relatif baru benar-benar bermakna kalau angka dasarnya sendiri besar."];
+      }
+    }
+  ];
+
+  function buildExp(D){
+    var P = {}, guess = null, running = false, eng = null, th = 0;
+    D.params.forEach(function(p){ P[p.k] = p.d; });
+    var tab = document.createElement("button");
+    tab.setAttribute("role","tab"); tab.setAttribute("aria-selected","false"); tab.dataset.exp = D.id; tab.textContent = D.tab;
+    document.querySelector(".tabs").appendChild(tab);
+    var el = document.createElement("div"); el.id = "exp-" + D.id; el.hidden = true;
+    el.innerHTML =
+      '<section class="card"><h2>Situasinya</h2><p data-s></p><div class="settings" data-params></div></section>' +
+      '<section class="card"><h2>Tebakanmu</h2><p data-q></p><div class="stack" data-choices></div><p style="margin-top:16px"><button class="primary" data-run disabled></button></p></section>' +
+      '<section class="card" data-sim hidden><h2>Simulasi</h2><canvas data-c role="img" aria-label="Grafik hasil simulasi"></canvas><p style="margin-top:10px" data-info></p></section>' +
+      '<section class="card" data-res aria-live="polite" hidden><h2>Hasilnya</h2><p class="verdict" data-v></p><p data-x></p><p class="lead" data-sc></p><button data-again>Coba lagi dengan angka acak baru</button></section>' +
+      '<p class="note" data-note></p>';
+    document.querySelector("main").insertBefore(el, $("#summary"));
+    var q = function(s){ return el.querySelector(s); };
+    var canvas = q("[data-c]");
+    if(D.h) canvas.style.height = D.h + "px";
+    q("[data-q]").textContent = D.q; q("[data-note]").textContent = D.note; q("[data-run]").textContent = D.run;
+
+    function render(){ q("[data-s]").textContent = D.story(P); }
+    function lock(on){
+      el.querySelectorAll("[data-choices] button, select").forEach(function(b){ b.disabled = on; });
+      if(on) q("[data-run]").disabled = true;
+    }
+    D.params.forEach(function(p){
+      var l = document.createElement("label"); l.textContent = p.label;
+      var sel = document.createElement("select");
+      p.opts.forEach(function(o){ var op = document.createElement("option"); op.value = o[0]; op.textContent = o[1]; if(o[0]===p.d) op.selected = true; sel.appendChild(op); });
+      sel.addEventListener("change", function(){ P[p.k] = +sel.value; render(); });
+      l.appendChild(sel); q("[data-params]").appendChild(l);
+    });
+    D.choices.forEach(function(c){
+      var b = document.createElement("button"); b.textContent = c[1]; b.dataset.g = c[0];
+      b.addEventListener("click", function(){
+        if(running) return; guess = c[0];
+        el.querySelectorAll("[data-choices] button").forEach(function(x){ x.classList.toggle("sel", x===b); });
+        q("[data-run]").disabled = false;
+      });
+      q("[data-choices]").appendChild(b);
+    });
+
+    function reset(){
+      guess = null; running = false; eng = null;
+      el.querySelectorAll("[data-choices] button").forEach(function(x){ x.classList.remove("sel"); });
+      lock(false); q("[data-run]").disabled = true;
+      q("[data-sim]").hidden = true; q("[data-res]").hidden = true; render();
+    }
+    function finish(){
+      running = false;
+      var ok = guess === D.bucket(th), o = D.out(P, th, eng);
+      var v = q("[data-v]"); v.className = "verdict " + (ok ? "good" : "bad");
+      v.textContent = (ok ? "Tebakanmu tepat. " : "Tebakanmu meleset. ") + o[0];
+      q("[data-x]").textContent = o[1];
+      var s = getScore("lir-" + D.id); s.total++; if(ok) s.right++; putScore("lir-" + D.id, s);
+      q("[data-sc]").textContent = "Skor intuisimu di eksperimen ini: benar " + s.right + " dari " + s.total + " tebakan.";
+      q("[data-res]").hidden = false; renderSummary();
+    }
+    function run(){
+      th = D.theory(P); eng = D.start(P, th); running = true;
+      q("[data-sim]").hidden = false; q("[data-res]").hidden = true; lock(true);
+      var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      function frame(){
+        var done = false;
+        if(reduce){ while(!done) done = eng.step(); } else { done = eng.step(); }
+        eng.draw(canvas); q("[data-info]").innerHTML = eng.info();
+        if(!done){ requestAnimationFrame(frame); } else { finish(); }
+      }
+      frame();
+    }
+    q("[data-run]").addEventListener("click", function(){ if(guess && !running) run(); });
+    q("[data-again]").addEventListener("click", reset);
+    redraws[D.id] = function(){ if(eng) eng.draw(canvas); };
+    window.addEventListener("resize", redraws[D.id]);
+    render();
+  }
+  EXPS.forEach(buildExp);
+
+  // ===== Ringkasan skor =====
+  var SCORES = [
+    ["monty","Monty Hall","Cenderung menganggap peluang tetap terbagi rata walau ada informasi baru (host membuka pintu kosong).","Kamu peka bahwa informasi baru bisa mengubah peluang."],
+    ["medis","Tes medis","Cenderung mengabaikan seberapa langka penyakitnya dan terpaku pada akurasi tes.","Kamu ingat memperhitungkan seberapa langka sesuatu, bukan hanya akurasi."],
+    ["bday","Ulang tahun","Cenderung meremehkan jumlah kemungkinan pasangan, jadi kebetulan terasa lebih jarang dari kenyataan.","Kamu sadar kebetulan bisa jauh lebih sering dari perkiraan."],
+    ["gambler","Gambler's fallacy","Cenderung percaya hasil acak harus menyeimbangkan dirinya (gambler's fallacy).","Kamu paham bahwa kejadian acak tidak punya ingatan."],
+    ["risk","Risiko relatif vs absolut","Cenderung terpengaruh persentase kenaikan tanpa melihat angka dasarnya.","Kamu selalu bertanya naik dari berapa ke berapa."]
+  ];
+  function renderSummary(){
+    var r = 0, t = 0, tried = 0, strong = [], weak = [];
+    var html = '<ul style="margin:0 0 12px;padding-left:18px">';
+    SCORES.forEach(function(e){
+      var s = getScore("lir-" + e[0]); r += s.right; t += s.total;
+      var tb = document.querySelector('.tabs button[data-exp="' + e[0] + '"]');
+      if(tb){ if(s.total) tb.dataset.score = s.right + "/" + s.total; else tb.removeAttribute("data-score"); }
+      if(s.total){ tried++; var a = s.right/s.total; if(a >= .6) strong.push(e); else if(a <= .4) weak.push(e); }
+      html += "<li>" + e[1] + ": " + (s.total ? "benar " + s.right + " dari " + s.total + " tebakan" : "belum dicoba") + "</li>";
+    });
+    html += "</ul>";
+    if(t < 3){
+      html += "<p>" + (t ? "Baru " + t + " tebakan." : "Belum ada tebakan.") + " Selesaikan minimal 3 tebakan untuk melihat kesimpulan tentang intuisimu.</p>";
+    } else {
+      var v = r/t;
+      var P = v >= .8 ? ["Intuisi Terkalibrasi","Kamu jarang tertipu. Perasaanmu soal peluang cukup sejalan dengan kenyataan, dan itu keterampilan yang langka."]
+            : v >= .6 ? ["Intuisi Cukup Terlatih","Kamu sering benar, tapi masih ada beberapa jebakan yang bisa mengecohmu."]
+            : v >= .4 ? ["Intuisi Setengah Andal","Intuisimu benar sekitar separuh waktu. Untuk keputusan yang berisiko, hitung dulu daripada hanya mengandalkan rasa."]
+            : ["Intuisi Mudah Terkecoh","Kebanyakan tebakanmu meleset. Itu bukan kekurangan pribadi: otak manusia memang tidak dirancang untuk probabilitas, dan itulah alasan lab ini dibuat."];
+      html += '<p class="verdict">Total: benar ' + r + " dari " + t + " tebakan (" + pct(v) + ").</p>";
+      html += '<h3 class="prof">' + P[0] + "</h3><p>" + P[1] + "</p>";
+      if(strong.length) html += "<p><b>Intuisi yang sudah tajam:</b></p><ul>" + strong.map(function(e){ return "<li>" + e[1] + ": " + e[3] + "</li>"; }).join("") + "</ul>";
+      if(weak.length) html += "<p><b>Jebakan yang masih mengena:</b></p><ul>" + weak.map(function(e){ return "<li>" + e[1] + ": " + e[2] + "</li>"; }).join("") + "</ul>";
+      html += '<p class="lead">' + (tried < 5 ? "Baru " + tried + " dari 5 eksperimen dicoba, jadi kesimpulan ini masih sementara. " : "") + "Ini rangkuman dari skormu di lab ini, bukan tes psikologi. Semua tebakan dihitung, termasuk saat mengulang.</p>";
+    }
+    $("#sumBody").innerHTML = html;
+  }
+  $("#sumReset").addEventListener("click", function(){
+    SCORES.forEach(function(e){ try{ localStorage.removeItem("lir-" + e[0]); }catch(x){} });
+    renderSummary();
+  });
+  renderSummary();
+
+  // ===== Tab antar eksperimen =====
+  document.querySelectorAll(".tabs button").forEach(function(t){
+    t.addEventListener("click", function(){
+      document.querySelectorAll(".tabs button").forEach(function(x){
+        var on = x === t;
+        x.setAttribute("aria-selected", on ? "true" : "false");
+        $("#exp-" + x.dataset.exp).hidden = !on;
+      });
+      if(hist.length && !$("#exp-monty").hidden) draw();
+      if(mUpto && !$("#exp-medis").hidden) mDraw();
+      if(redraws[t.dataset.exp]) redraws[t.dataset.exp]();
+    });
+  });
+
+  renderSetup();
+  mRender();
+})();
+</script>
+</body>
+</html>
